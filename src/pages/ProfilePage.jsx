@@ -35,6 +35,7 @@ const ProfilePage = () => {
   const [editMode, setEditMode] = useState(false);
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
+  const [selectedActivity, setSelectedActivity] = useState(null); // <-- modal state
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -49,7 +50,7 @@ const ProfilePage = () => {
   }, []);
 
   const fetchProfile = async (uid) => {
-    const snap = await getDocs(query(collection(db, "profiles"), where("userId", "==", uid)));
+    const snap = await getDocs(query(collection(db, "users"), where("userId", "==", uid)));
     if (!snap.empty) {
       const data = snap.docs[0].data();
       setPhone(data.phone || "");
@@ -68,17 +69,17 @@ const ProfilePage = () => {
 
   const handleSaveProfile = async () => {
     if (!user) return;
-    await setDoc(doc(db, "profiles", user.uid), {
+    await setDoc(doc(db, "users", user.uid), {
       userId: user.uid,
       phone,
       location,
-    });
+    }, { merge: true }); // merge to avoid overwriting other fields
     setEditMode(false);
   };
 
   const getProfilePic = () => {
     if (user?.photoURL) return user.photoURL;
-    const name = user?.displayName || user?.email?.split("@")[0] || "User";
+    const name = user?.displayName || user?.email?.split("@")?.[0] || "User";
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=2E7D32&color=fff&rounded=true&size=128`;
   };
 
@@ -104,9 +105,8 @@ const ProfilePage = () => {
         }}
       >
         <div style={{ fontWeight: "bold", fontSize: "20px", color: PRIMARY }}>
-          ♻️ E-Waste Recycle
+          ♻ E-Waste Recycle
         </div>
-
         <div
           style={{
             display: "flex",
@@ -128,16 +128,6 @@ const ProfilePage = () => {
           </span>
           <span
             style={{
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-            }}
-          >
-            <FaMapMarkerAlt /> Nearby Centers
-          </span>
-          <span
-            style={{
               background: "#C8E6C9",
               color: PRIMARY,
               borderRadius: "12px",
@@ -147,9 +137,26 @@ const ProfilePage = () => {
           >
             🌱 {ecoPoints} Eco Points
           </span>
+          <span 
+            onClick={async () => {
+              try {
+                await auth.signOut();
+                window.location.href = '/login';
+              } catch (error) {
+                console.error('Error signing out:', error);
+              }
+            }}
+              style={{
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+            }}
+          >
+             Logout
+          </span>
         </div>
       </nav>
-
       <main
         style={{
           maxWidth: "1000px",
@@ -161,7 +168,6 @@ const ProfilePage = () => {
         <p style={{ marginBottom: "20px", color: "#555" }}>
           Manage your account and track your eco-friendly journey
         </p>
-
         <div
           style={{
             display: "flex",
@@ -193,16 +199,13 @@ const ProfilePage = () => {
                   borderRadius: "50%",
                 }}
               />
-
-<p>
-  <strong>Name:</strong>{" "}
-  {user?.displayName && user.displayName.trim() !== ""
-    ? user.displayName
-    : user?.email?.split("@")[0] || "User"}
-</p>
-
+              <p>
+                <strong>Name:</strong>{" "}
+                {user?.displayName && user.displayName.trim() !== ""
+                  ? user.displayName
+                  : user?.email?.split("@")?.[0] || "User"}
+              </p>
               <p><strong>Email:</strong> {user?.email}</p>
-
               <div style={{ marginTop: "10px" }}>
                 <p><strong>Phone:</strong> {editMode ? (
                   <input
@@ -219,7 +222,6 @@ const ProfilePage = () => {
                 ) : (
                   <span style={{ marginLeft: "10px" }}>{phone || "Not set"}</span>
                 )}</p>
-
                 <p><strong>Location:</strong> {editMode ? (
                   <input
                     type="text"
@@ -235,7 +237,6 @@ const ProfilePage = () => {
                 ) : (
                   <span style={{ marginLeft: "10px" }}>{location || "Not set"}</span>
                 )}</p>
-
                 {editMode ? (
                   <button
                     onClick={handleSaveProfile}
@@ -272,7 +273,6 @@ const ProfilePage = () => {
               </div>
             </div>
           </div>
-
           {/* Your Impact */}
           <div
             style={{
@@ -287,16 +287,14 @@ const ProfilePage = () => {
             <h3 style={{ textAlign: "center", marginBottom: "20px" }}>
               🌟 Your Impact
             </h3>
-
             <div
-  style={{
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "20px",
-    justifyContent: "space-between",
-  }}
->
-
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "20px",
+                justifyContent: "space-between",
+              }}
+            >
               <div style={impactBox}>
                 <div style={{ fontSize: "22px", fontWeight: "bold" }}>{ecoPoints}</div>
                 <div>EcoPoints</div>
@@ -306,79 +304,107 @@ const ProfilePage = () => {
                 <div>Total Items</div>
               </div>
               <div style={impactBox}>
-                <div style={{ fontSize: "22px", fontWeight: "bold" }}>{uploads.filter(u => u.status === "RECYCLED").length}</div>
-                <div>Items Recycled</div>
+                <div style={{ fontSize: "22px", fontWeight: "bold" }}>{uploads.filter(u => u.status === "interested").length}</div>
+                <div>Items Picked Up</div>
               </div>
               <div style={impactBox}>
-                <div style={{ fontSize: "22px", fontWeight: "bold" }}>{uploads.filter(u => u.status === "ANALYZED").length}</div>
-                <div>Items Analyzed</div>
+                <div style={{ fontSize: "22px", fontWeight: "bold" }}>{uploads.filter(u => u.status === "not_interested").length}</div>
+                <div>Items Not Interested</div>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Upload History */}
+        {/* Upload History (Recent Activities) */}
         <section>
-          <h3>📦 Upload History</h3>
+          <h3>📦 Recent Activities</h3>
           <div>
-            {uploads.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  background: "#fff",
-                  padding: "10px",
-                  border: "1px solid #ddd",
-                  borderRadius: "5px",
-                  marginBottom: "10px",
-                }}
-              >
-                {item.url && (
-                  <img
-                    src={item.url}
-                    alt={item.name}
-                    style={{
-                      width: 60,
-                      height: 60,
-                      marginRight: 10,
-                      objectFit: "cover",
-                      borderRadius: "4px",
-                    }}
-                  />
-                )}
-                <div>
-                  <p>{item.name}</p>
-                  <p>
-                    {new Date(item.uploadedAt?.seconds * 1000).toLocaleDateString()}
-                  </p>
-                  <span
-                    style={{
-                      fontSize: 12,
-                      padding: "2px 6px",
-                      borderRadius: 3,
-                      backgroundColor:
-                        item.status === "RECYCLED" ? "#d4f5d4" : "#e0f0ff",
-                      color: item.status === "RECYCLED" ? "#339933" : "#0066cc",
-                    }}
-                  >
-                    {item.status}
-                  </span>
-                </div>
+            {uploads.length === 0 ? (
+              <div style={{ color: '#888', textAlign: 'center' }}>No recent activities yet.</div>
+            ) : (
+              uploads.map((item) => (
                 <div
+                  key={item.id}
+                  onClick={() => setSelectedActivity(item)}
                   style={{
-                    marginLeft: "auto",
-                    marginRight: 20,
-                    fontWeight: "bold",
-                    color: "green",
+                    display: "flex",
+                    alignItems: "center",
+                    background: "#fff",
+                    padding: "10px",
+                    border: "1px solid #ddd",
+                    borderRadius: "5px",
+                    marginBottom: "10px",
+                    cursor: "pointer",
                   }}
                 >
-                  +{item.points}
+                  {item.url && (
+                    <img
+                      src={item.url}
+                      alt="Activity"
+                      style={{
+                        width: 60,
+                        height: 60,
+                        marginRight: 10,
+                        objectFit: "cover",
+                        borderRadius: "4px",
+                      }}
+                    />
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 2 }}>
+                      {item.status === 'pickup_scheduled'
+                        ? `Pickup Scheduled${item.pickupDateTime ? ': ' + (item.pickupDateTime.toDate ? item.pickupDateTime.toDate().toLocaleString() : new Date(item.pickupDateTime.seconds * 1000).toLocaleString()) : ''}${item.pickupLocation ? ' | Location: ' + item.pickupLocation : ''}`
+                        : item.status === 'accepted'
+                        ? 'Accepted'
+                        : item.status === 'recycled'
+                        ? 'Interested'
+                        : item.status === 'Pickup Done'
+                        ? 'Pickup Done'
+                        : 'Pickup Done'}
+                    </div>
+                    <div style={{ fontSize: 13, color: '#555', marginBottom: 4, whiteSpace: 'pre-wrap' }}>
+                      {item.aiMsg && item.aiMsg.slice(0, 35)}{item.aiMsg && item.aiMsg.length > 80 ? '...' : ''}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#888' }}>{item.uploadedAt?.seconds ? new Date(item.uploadedAt.seconds * 1000).toLocaleString() : ''}</div>
+                  </div>
+                  <div
+                    style={{
+                      marginLeft: "auto",
+                      marginRight: 20,
+                      fontWeight: "bold",
+                      color: item.status === 'accepted' ? 'blue' : item.status === 'recycled' ? 'green' : '#888',
+                    }}
+                  >
+                    {item.status === 'accepted' ? `+${item.points || 0}` : item.status === 'recycled' ? `+${item.points || 0}` : ''}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </section>
+        {/* Modal for activity details */}
+        {selectedActivity && (
+          <div style={{
+            position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+            background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
+          }}>
+            <div style={{
+              background: "#fff", borderRadius: 10, padding: 30, minWidth: 320, maxWidth: 400, boxShadow: "0 2px 12px rgba(0,0,0,0.2)"
+            }}>
+              <h3>Device Details</h3>
+              {selectedActivity.url && (
+                <img src={selectedActivity.url} alt="Activity" style={{ width: "100%", borderRadius: 8, marginBottom: 12 }} />
+              )}
+              <p><strong>Status:</strong> {selectedActivity.status}</p>
+              <p><strong>Location:</strong> {selectedActivity.pickupLocation}</p>
+              <p><strong>Device Name:</strong> {selectedActivity.itemName || "N/A"}</p>
+              <p><strong>Points:</strong> {selectedActivity.points || 0}</p>
+              <p><strong>Uploaded At:</strong> {selectedActivity.uploadedAt?.seconds ? new Date(selectedActivity.uploadedAt.seconds * 1000).toLocaleString() : ''}</p>
+              <button onClick={() => setSelectedActivity(null)} style={{
+                marginTop: 10, padding: "8px 16px", background: PRIMARY, color: "#fff", border: "none", borderRadius: 6, cursor: "pointer"
+              }}>Close</button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
@@ -393,6 +419,5 @@ const impactBox = {
   width: "48%", // Ensure two per row with space between
   boxSizing: "border-box",
 };
-
 
 export default ProfilePage;
