@@ -1,16 +1,21 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { auth, db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
-import { FaUpload, FaSun, FaMoon, FaExpand, FaCompress, FaTimes } from 'react-icons/fa';
+import { FaUpload, FaSun, FaMoon, FaExpand, FaCompress, FaTimes, FaBell, FaRecycle } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc, increment } from 'firebase/firestore';
+import { setDoc, getDoc } from 'firebase/firestore';
 
 const PRIMARY = '#2E7D32';
 const BG_LIGHT = '#E8F5E9';
 const BG_DARK = '#1B1B1B';
 const TEXT_LIGHT = '#212121';
 const TEXT_DARK = '#F1F1F1';
+
+// Add Cloudinary credentials
+const CLOUD_NAME = 'dxmjv8vff';
+const UPLOAD_PRESET = 'unsigned_ewaste';
 
 // Gemini setup
 const genAI = new GoogleGenerativeAI("AIzaSyBJl5sgKjyH9hWV5XgcJJecs1DOOTq0838");
@@ -68,9 +73,12 @@ const Dashboard = () => {
   const [lastImageData, setLastImageData] = useState(null); // { url, aiMsg }
   const [recentActivities, setRecentActivities] = useState([]); // { url, status, aiMsg, uploadedAt }
   const [fullscreen, setFullscreen] = useState(false);
+  const [cloudImageUrl, setCloudImageUrl] = useState(null);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const chatEndRef = useRef(null);
+  const [showUserForm, setShowUserForm] = useState(false);
+  const [userForm, setUserForm] = useState({ name: '', email: '', phone: '', itemName: '', description: '', location: '' });
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -94,11 +102,12 @@ const Dashboard = () => {
     if (storedName) setSignupName(storedName);
   }, []);
 
-  useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [chatHistory]);
+  // Removed auto-scroll behavior to prevent page scrolling to bottom
+  // useEffect(() => {
+  //   if (chatEndRef.current) {
+  //     chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  //   }
+  // }, [chatHistory]);
 
   const fetchEcoPoints = async (uid) => {
     // Sum points from uploads
@@ -162,6 +171,20 @@ const Dashboard = () => {
     }
   };
 
+  // Cloudinary upload helper
+  async function uploadToCloudinary(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', UPLOAD_PRESET);
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await res.json();
+    if (!data.secure_url) throw new Error('Cloudinary upload failed');
+    return data.secure_url;
+  }
+
   const handleImageUpload = async () => {
     if (!file) return;
     setAiLoading(true);
@@ -169,9 +192,13 @@ const Dashboard = () => {
     setImagePreview(URL.createObjectURL(file));
     setChatHistory((prev) => [...prev, { role: 'user', text: '[Image uploaded]', image: imagePreview }] );
     try {
+      // Upload to Cloudinary first
+      const uploadedUrl = await uploadToCloudinary(file);
+      setCloudImageUrl(uploadedUrl);
+      // Then analyze with Gemini
       const aiMsg = await getGeminiImageAnswer(file);
-      setChatHistory((prev) => [...prev, { role: 'ai', text: aiMsg, image: imagePreview }]);
-      setLastImageData({ url: imagePreview, aiMsg });
+      setChatHistory((prev) => [...prev, { role: 'ai', text: aiMsg, image: uploadedUrl }]);
+      setLastImageData({ url: uploadedUrl, aiMsg });
       setShowRecyclePrompt(true);
       setFile(null);
       setImagePreview(null);
@@ -186,7 +213,7 @@ const Dashboard = () => {
     if (!user || !lastImageData) return;
     setShowRecyclePrompt(false);
     let status = choice === 'recycle' ? 'recycled' : 'not_interested';
-    let points = choice === 'recycle' ? 10 : 0;
+    let points = choice === 'recycle' ? 50 : 0;
     try {
       await addDoc(collection(db, 'uploads'), {
         userId: user.uid,
@@ -197,8 +224,67 @@ const Dashboard = () => {
         uploadedAt: serverTimestamp(),
       });
       if (choice === 'recycle') {
-        setEcoPoints((prev) => prev + 10);
+        // Add 50 points to user doc
+        
+
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (!userDocSnap.exists()) {
+          // Create the document with initial ecoPoints
+          await setDoc(userDocRef, { ecoPoints: 0 });
+        } else {
+          // Document exists, just increment
+          await updateDoc(userDocRef, { ecoPoints: increment(50) });
+        }
+        
+        setEcoPoints((prev) => prev + 50);
       }
+      await fetchRecentActivities(user.uid);
+    } catch (err) {
+      setAiError('Error saving activity: ' + err.message);
+    }
+    setLastImageData(null);
+  };
+
+  // Show user form when interested
+  const handleShowUserForm = () => {
+    setShowRecyclePrompt(false);
+    setShowUserForm(true);
+    setUserForm({
+      name: user?.displayName || user?.email?.split('@')[0] || '',
+      email: user?.email || '',
+      phone: '',
+      itemName: '',
+      description: '',
+      location: '',
+    });
+  };
+
+  // Submit user form and save to Firestore
+  const handleUserFormSubmit = async (e) => {
+    e.preventDefault();
+    if (!user || !lastImageData) return;
+    setShowUserForm(false);
+    try {
+      await addDoc(collection(db, 'uploads'), {
+        userId: user.uid,
+        url: lastImageData.url,
+        aiMsg: lastImageData.aiMsg,
+        status: 'recycled',
+        points: 50,
+        uploadedAt: serverTimestamp(),
+        userName: userForm.name,
+        userEmail: userForm.email,
+        userPhone: userForm.phone,
+        itemName: userForm.itemName,
+        userDescription: userForm.description,
+        location: userForm.location,
+      });
+      // Add 50 points to user doc
+      const userDocRef = doc(db, 'users', user.uid);
+      await updateDoc(userDocRef, { ecoPoints: increment(50) });
+      setEcoPoints((prev) => prev + 50);
       await fetchRecentActivities(user.uid);
     } catch (err) {
       setAiError('Error saving activity: ' + err.message);
@@ -243,8 +329,8 @@ const Dashboard = () => {
       {/* Normal (non-fullscreen) Ask AI section */}
       {!fullscreen && (
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
           style={{
             flex: 1,
@@ -288,17 +374,100 @@ const Dashboard = () => {
                 <p style={{ textAlign: 'center', color: '#999' }}>Start a conversation about e-waste...</p>
               )}
               {chatHistory.map((msg, i) => (
-                <div key={i} style={{ marginBottom: 8, textAlign: msg.role === 'user' ? 'right' : 'left' }}>
+                <div key={i} style={{ marginBottom: 8, textAlign: msg.role === 'user' ? 'right' : 'left', display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', alignItems: 'flex-end' }}>
                   {msg.image && (
-                    <img src={msg.image} alt="Uploaded" style={{ width: 80, maxHeight: 80, objectFit: 'contain', borderRadius: 8, marginBottom: 6, border: '1px solid #ccc' }} />
+                    <img src={msg.image} alt="Uploaded" style={{ width: 80, maxHeight: 80, objectFit: 'contain', borderRadius: 8, margin: msg.role === 'user' ? '0 0 0 8px' : '0 8px 0 0', border: '1px solid #ccc' }} />
                   )}
-                  <span style={{ background: msg.role === 'user' ? '#C8E6C9' : '#F1F8E9', padding: 10, borderRadius: 10, display: 'inline-block', maxWidth: '80%' }}>{msg.text}</span>
+                  <span style={{ background: msg.role === 'user' ? '#C8E6C9' : '#F1F8E9', padding: 10, borderRadius: 10, display: 'inline-block', maxWidth: '70%', wordBreak: 'break-word', overflowWrap: 'break-word', fontSize: 15 }}>{msg.text}</span>
                 </div>
               ))}
+              {/* Show AI info and buttons as a chat bubble if needed */}
+              {showRecyclePrompt && lastImageData && (
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', marginBottom: 8 }}>
+                  <img src={lastImageData.url} alt="Uploaded" style={{ width: 80, maxHeight: 80, objectFit: 'contain', borderRadius: 8, marginRight: 8, border: '1px solid #ccc' }} />
+                  <div style={{ background: '#F1F8E9', padding: 12, borderRadius: 10, maxWidth: '70%', wordBreak: 'break-word', overflowWrap: 'break-word', fontSize: 15, flex: 1 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 8 }}>Are you interested in recycling this item?</div>
+                    <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', lineHeight: 1.6, margin: '12px 0' }}>{lastImageData.aiMsg}</div>
+                    <button
+                      onClick={handleShowUserForm}
+                      style={{ margin: '0 8px 0 0', padding: '8px 24px', background: PRIMARY, color: '#fff', borderRadius: 6, fontWeight: 600, fontSize: 15, border: 'none' }}
+                    >
+                      Interested
+                    </button>
+                    <button
+                      onClick={() => handleRecycleChoice('not_interested')}
+                      style={{ margin: '0', padding: '8px 24px', background: '#ccc', color: '#000', borderRadius: 6, fontWeight: 600, fontSize: 15, border: 'none' }}
+                    >
+                      Not Interested
+                    </button>
+                  </div>
+                </div>
+              )}
+              {/* User details form modal/inline */}
+              {showUserForm && (
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', marginBottom: 8 }}>
+                  <img src={lastImageData?.url} alt="Uploaded" style={{ width: 80, maxHeight: 80, objectFit: 'contain', borderRadius: 8, marginRight: 8, border: '1px solid #ccc' }} />
+                  <form onSubmit={handleUserFormSubmit} style={{ background: '#F1F8E9', padding: 16, borderRadius: 10, maxWidth: '70%', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Please provide your details</div>
+                    <input
+                      type="text"
+                      value={userForm.name}
+                      onChange={e => setUserForm({ ...userForm, name: e.target.value })}
+                      placeholder="Your Name"
+                      required
+                      style={{ padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                    />
+                    <input
+                      type="email"
+                      value={userForm.email}
+                      onChange={e => setUserForm({ ...userForm, email: e.target.value })}
+                      placeholder="Your Email"
+                      required
+                      style={{ padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                    />
+                    <input
+                      type="tel"
+                      value={userForm.phone}
+                      onChange={e => setUserForm({ ...userForm, phone: e.target.value })}
+                      placeholder="Your Phone"
+                      required
+                      style={{ padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                    />
+                    <input
+                      type="text"
+                      value={userForm.itemName}
+                      onChange={e => setUserForm({ ...userForm, itemName: e.target.value })}
+                      placeholder="Item Name"
+                      required
+                      style={{ padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                    />
+                    <textarea
+                      value={userForm.description}
+                      onChange={e => setUserForm({ ...userForm, description: e.target.value })}
+                      placeholder="Short description about your device or request"
+                      required
+                      style={{ padding: 8, borderRadius: 6, border: '1px solid #ccc', minHeight: 60 }}
+                    />
+                    <input
+                      type="text"
+                      value={userForm.location}
+                      onChange={e => setUserForm({ ...userForm, location: e.target.value })}
+                      required
+                      placeholder="Location"
+                      style={{ padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                    />
+                    <button
+                      type="submit"
+                      style={{ padding: '8px 24px', background: PRIMARY, color: '#fff', borderRadius: 6, fontWeight: 600, fontSize: 15, border: 'none', marginTop: 6 }}
+                    >
+                      Submit
+                    </button>
+                  </form>
+                </div>
+              )}
               {aiLoading && <p style={{ fontStyle: 'italic', color: '#999', textAlign: 'left' }}>🤖 Gemini is thinking...</p>}
               <div ref={chatEndRef} />
             </div>
-
             <form onSubmit={handleAiSubmit} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
               <input
                 value={aiInput}
@@ -360,25 +529,6 @@ const Dashboard = () => {
                 <img src={imagePreview} alt="Preview" style={{ width: 40, maxHeight: 40, objectFit: 'contain', borderRadius: 6, border: '1px solid #ccc' }} />
               )}
             </div>
-            {showRecyclePrompt && lastImageData && (
-              <div style={{ marginTop: 18, textAlign: 'center' }}>
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>Are you interested in recycling this item?</div>
-                <img src={lastImageData.url} alt="Uploaded" style={{ width: 120, maxHeight: 120, objectFit: 'contain', borderRadius: 8, marginBottom: 8, border: '1px solid #ccc' }} />
-                <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', lineHeight: 1.6, margin: '12px 0' }}>{lastImageData.aiMsg}</div>
-                <button
-                  onClick={() => handleRecycleChoice('recycle')}
-                  style={{ margin: '0 8px', padding: '8px 24px', background: PRIMARY, color: '#fff', borderRadius: 6, fontWeight: 600, fontSize: 15, border: 'none' }}
-                >
-                  Yes, Recycle
-                </button>
-                <button
-                  onClick={() => handleRecycleChoice('not_interested')}
-                  style={{ margin: '0 8px', padding: '8px 24px', background: '#ccc', color: '#000', borderRadius: 6, fontWeight: 600, fontSize: 15, border: 'none' }}
-                >
-                  Not Interested
-                </button>
-              </div>
-            )}
             {aiError && <p style={{ color: 'red', marginTop: 10 }}>{aiError}</p>}
           </>
         )}
@@ -388,76 +538,311 @@ const Dashboard = () => {
 
   return (
     <div style={{ minHeight: '100vh', fontFamily: 'Segoe UI, Arial, sans-serif', background: darkMode ? BG_DARK : BG_LIGHT, color: darkMode ? TEXT_DARK : TEXT_LIGHT }}>
-      {/* Navbar */}
+      {/* Navigation Bar */}
       <nav style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px', backgroundColor: darkMode ? '#333' : '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.1)', transition: 'all 0.3s ease-in-out'
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        padding: '16px 24px', 
+        backgroundColor: darkMode ? '#1a1a1a' : '#ffffff', 
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)', 
+        borderBottom: `2px solid ${PRIMARY}`,
+        transition: 'all 0.3s ease-in-out'
       }}>
-        <h2 style={{ color: PRIMARY }}>♻ E-Waste Recycle</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        {/* Left side - Logo and Brand */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 8,
+            fontSize: '24px',
+            fontWeight: 'bold',
+            color: PRIMARY
+          }}>
+            <FaRecycle style={{ fontSize: '28px' }} />
+            <span>E-Waste Recycle</span>
+          </div>
+        </div>
+
+        {/* Right side - Navigation Items */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          {/* Eco Points */}
           <motion.div
             initial={{ scale: 1 }}
             animate={animatePoints ? { scale: [1, 1.2, 1] } : {}}
             transition={{ duration: 0.5 }}
             style={{
-              backgroundColor: '#C8E6C9', padding: '6px 12px', borderRadius: 16, fontSize: 14,
-              fontWeight: 'bold', color: PRIMARY
+              backgroundColor: '#C8E6C9', 
+              padding: '8px 16px', 
+              borderRadius: 20, 
+              fontSize: 14,
+              fontWeight: 'bold', 
+              color: PRIMARY,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6
             }}
           >
-            🌱 Eco Points: {ecoPoints}
+            🌱 {ecoPoints} Points
           </motion.div>
 
-          <button onClick={toggleDarkMode} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-            {darkMode ? <FaSun color={PRIMARY} /> : <FaMoon color={PRIMARY} />}
+          {/* Notification Icon */}
+          <button style={{ 
+            background: 'none', 
+            border: 'none', 
+            cursor: 'pointer',
+            fontSize: '20px',
+            color: PRIMARY,
+            padding: '8px',
+            borderRadius: '50%',
+            transition: 'background-color 0.2s'
+          }} onMouseEnter={(e) => e.target.style.backgroundColor = '#f0f0f0'} onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}>
+            <FaBell />
           </button>
 
-          <img src={getProfilePic()} alt="Profile" style={{ borderRadius: '50%', width: 40, height: 40, cursor: 'pointer' }} onClick={() => navigate('/profile')} />
+          {/* Theme Toggle */}
+          <button 
+            onClick={toggleDarkMode} 
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              cursor: 'pointer',
+              fontSize: '20px',
+              color: PRIMARY,
+              padding: '8px',
+              borderRadius: '50%',
+              transition: 'background-color 0.2s'
+            }} 
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#f0f0f0'} 
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+          >
+            {darkMode ? <FaSun /> : <FaMoon />}
+          </button>
+
+          {/* Profile */}
+          <img 
+            src={getProfilePic()} 
+            alt="Profile" 
+            style={{ 
+              borderRadius: '50%', 
+              width: 40, 
+              height: 40, 
+              cursor: 'pointer',
+              border: `2px solid ${PRIMARY}`,
+              transition: 'transform 0.2s'
+            }} 
+            onClick={() => navigate('/profile')}
+            onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
+            onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+          />
         </div>
       </nav>
 
-      {/* Main Content */}
-      <section style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', padding: 40, gap: 24 }}>
-        <motion.div
-          initial={{ opacity: 0, x: -30 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.8 }}
-          style={{ flex: 1 }}
-        >
-          <h2 style={{ color: PRIMARY }}>Hey, {getDisplayName()}!</h2>
-          <h1 style={{ fontSize: 36, color: PRIMARY }}>♻ Welcome to E-Waste Recycle</h1>
-          <p style={{ fontSize: 18 }}>
-            Our platform helps you locate nearby recycling centers, track your eco points, and dispose of e-waste responsibly.
-          </p>
-        </motion.div>
+      <section style={{
+  position: 'relative',
+  backgroundImage: `url('https://i.pinimg.com/736x/0f/d9/ac/0fd9ac13add76e3459b2f75fd07991e5.jpg')`,
+  backgroundSize: 'cover',
+  backgroundPosition: 'center',
+  backgroundRepeat: 'no-repeat',
+  minHeight: '80vh',
+  width: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontFamily: `'Segoe UI', sans-serif`,
+  color: '#fff',
+  textAlign: 'center',
+  overflow: 'hidden'
+}}>
+   <div style={{
+    position: 'absolute',
+    top: 0, left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(104, 234, 128, 0.6)', // Lightens it
+    zIndex: 1,
+  }} />
+  {/* Slight dark overlay for readability */}
+  <div style={{
+    position: 'absolute',
+    top: 0, left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', // subtle dark overlay
+    zIndex: 1
+  }}></div>
 
-        {askAISection}
-      </section>
+  {/* Content */}
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 1 }}
+    style={{
+      zIndex: 2, // ensure it's above overlay
+      maxWidth: '800px',
+      padding: '40px'
+    }}
+  >
+    <h1 style={{
+      fontSize: '48px',
+      fontWeight: '800',
+      marginBottom: '20px',
+      lineHeight: '1.2'
+    }}>
+      Hello, {getDisplayName()} 👋
+    </h1>
+    <h3 style={{
+      fontSize: '24px',
+      fontWeight: '600',
+      marginBottom: '20px'
+    }}>
+      Help us create a sustainable future. Start with your unused devices!
+    </h3>
+    <p style={{
+      fontSize: '18px',
+      lineHeight: '1.6',
+      marginBottom: '30px'
+    }}>
+      Identify and upload your e-waste items using our AI assistant. Learn about their impact,
+      recycle safely, and earn eco points for every responsible action you take.
+    </p>
+    <button
+      onClick={() => document.getElementById('ask-ai-section')?.scrollIntoView({ behavior: 'smooth' })}
+      style={{
+        padding: '14px 28px',
+        fontSize: '16px',
+        backgroundColor: '#43a047',
+        color: '#fff',
+        border: 'none',
+        borderRadius: '10px',
+        cursor: 'pointer',
+        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
+        transition: 'background-color 0.3s ease'
+      }}
+      onMouseOver={(e) => e.target.style.backgroundColor = '#2e7d32'}
+      onMouseOut={(e) => e.target.style.backgroundColor = '#43a047'}
+    >
+      🤖 Ask AI
+    </button>
+  </motion.div>
+</section>
+
+     {/* AI Section */}
+<section
+  id="ask-ai-section"  // <-- Add this line
+  style={{ padding: '40px 24px', maxWidth: '1200px', margin: '0 auto' }}
+>
+  {askAISection}
+</section>
+
 
       {/* Recent Activities Section */}
-      <section style={{ maxWidth: 900, margin: '0 auto', marginTop: 24, background: '#fff', borderRadius: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', padding: 24 }}>
-        <h3 style={{ color: PRIMARY, fontWeight: 700, marginBottom: 18 }}>Recent Activities</h3>
-        {recentActivities.length === 0 ? (
-          <div style={{ color: '#888', textAlign: 'center' }}>No recent activities yet.</div>
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18 }}>
-            {recentActivities.map((item) => (
-              <div key={item.id} style={{ background: '#F1F8E9', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.05)', padding: 14, minWidth: 180, maxWidth: 220, flex: '1 1 180px', textAlign: 'center' }}>
-                {item.url && (
-                  <img src={item.url} alt="Activity" style={{ width: 80, maxHeight: 80, objectFit: 'contain', borderRadius: 8, marginBottom: 8, border: '1px solid #ccc' }} />
-                )}
-                <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{item.status === 'recycled' ? 'Recycled' : 'Not Interested'}</div>
-                <div style={{ fontSize: 13, color: '#555', marginBottom: 6 }}>{item.aiMsg && item.aiMsg.slice(0, 60)}{item.aiMsg && item.aiMsg.length > 60 ? '...' : ''}</div>
-                <div style={{ fontSize: 12, color: '#888' }}>{item.uploadedAt?.seconds ? new Date(item.uploadedAt.seconds * 1000).toLocaleString() : ''}</div>
-              </div>
-            ))}
-          </div>
-        )}
+      <section style={{ 
+        maxWidth: 1200, 
+        margin: '0 auto', 
+        marginTop: 40, 
+        marginBottom: 40,
+        padding: '0 24px'
+      }}>
+        <div style={{ 
+          background: darkMode ? '#2a2a2a' : '#fff', 
+          borderRadius: 16, 
+          boxShadow: '0 4px 16px rgba(0,0,0,0.1)', 
+          padding: 32,
+          border: `1px solid ${darkMode ? '#444' : '#e0e0e0'}`
+        }}>
+          <h3 style={{ 
+            color: PRIMARY, 
+            fontWeight: 700, 
+            marginBottom: 24,
+            fontSize: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <FaRecycle /> Recent Activities
+          </h3>
+          {recentActivities.length === 0 ? (
+            <div style={{ 
+              color: '#888', 
+              textAlign: 'center',
+              padding: '40px',
+              fontSize: '16px'
+            }}>
+              No recent activities yet. Start by uploading an image or asking the AI about e-waste!
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
+              {recentActivities.map((item) => (
+                <div key={item.id} style={{ 
+                  background: darkMode ? '#3a3a3a' : '#F1F8E9', 
+                  borderRadius: 12, 
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)', 
+                  padding: 20, 
+                  minWidth: 200, 
+                  maxWidth: 250, 
+                  flex: '1 1 200px', 
+                  textAlign: 'center',
+                  border: `1px solid ${darkMode ? '#555' : '#e8f5e8'}`
+                }}>
+                  {item.url && (
+                    <img src={item.url} alt="Activity" style={{ 
+                      width: 80, 
+                      maxHeight: 80, 
+                      objectFit: 'contain', 
+                      borderRadius: 8, 
+                      marginBottom: 12, 
+                      border: '1px solid #ccc' 
+                    }} />
+                  )}
+                  <div style={{ 
+                    fontWeight: 600, 
+                    fontSize: 16, 
+                    marginBottom: 6,
+                    color: darkMode ? '#fff' : '#333'
+                  }}>
+                    {item.status?.toLowerCase() === 'pickup_scheduled'
+                      ? 'Pickup Scheduled'
+                      : item.status?.toLowerCase() === 'accepted'
+                      ? 'Accepted'
+                      : item.status?.toLowerCase() === 'recycled'
+                      ? 'Interested'
+                      : 'Not Interested'}
+                  </div>
+                  <div style={{ 
+                    fontSize: 14, 
+                    color: item.status === 'accepted' ? '#2196F3' : item.status === 'recycled' ? '#4CAF50' : '#888',
+                    marginBottom: 8
+                  }}>
+                    {item.aiMsg && item.aiMsg.slice(0, 60)}{item.aiMsg && item.aiMsg.length > 60 ? '...' : ''}
+                  </div>
+                  <div style={{ 
+                    fontSize: 12, 
+                    color: '#888' 
+                  }}>
+                    {item.uploadedAt?.seconds ? new Date(item.uploadedAt.seconds * 1000).toLocaleString() : ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
-      <footer style={{ backgroundColor: '#fff', textAlign: 'center', padding: '16px 0', borderTop: '1px solid #ddd', marginTop: 'auto', color: '#555', fontSize: 14 }}>
+      <footer style={{ 
+        backgroundColor: darkMode ? '#1a1a1a' : '#fff', 
+        textAlign: 'center', 
+        padding: '24px 0', 
+        borderTop: `1px solid ${darkMode ? '#333' : '#ddd'}`, 
+        marginTop: 'auto', 
+        color: darkMode ? '#ccc' : '#555', 
+        fontSize: 14 
+      }}>
         © {new Date().getFullYear()} E-Waste Recycle. All rights reserved.
       </footer>
     </div>
   );
 };
-
 export default Dashboard;
+
+
