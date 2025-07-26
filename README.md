@@ -1,59 +1,79 @@
+# AI-Powered E-Waste Awareness and Recycling Platform
 
-# E-Waste Recycling AI Platform
+## Overview
 
-An AI-powered web application to identify e-waste items, provide recycling information, and encourage responsible disposal through rewards and education.
-
----
-
-## Vision
-
-To create a sustainable future by promoting responsible e-waste management through technology and awareness.
-
-## Mission
-
-To empower individuals to recycle electronic waste by providing AI-driven assistance, education, and eco-rewards.
-
-## Core Values
-
-- **Sustainability** – Reducing environmental impact through recycling
-- **Awareness** – Educating users about e-waste hazards and solutions
-- **Innovation** – Leveraging AI to solve real-world problems
-- **Community** – Building a green ecosystem with user participation
+This project is an AI-powered e-waste awareness and recycling platform developed by **Team Creators**. The platform bridges the gap between individuals looking to dispose of e-waste responsibly and organizations committed to collecting and recycling it. It features a dual interface—one for users and another for organizations—facilitating seamless communication and sustainable action.
 
 ---
 
 ## Features
 
-- **AI-based e-waste recognition** via image upload
-- Provides:
-  - E-waste description
-  - Potential hazards
-  - Recycling options
-- **AI Chatbot assistance** for guidance and motivation
-- **User Authentication** (Sign up / Login)
-- **Dashboard** with:
-  - Uploaded e-waste history
-  - Eco-points earned
-  - Profile page with user details
-- **Eco Points System** – Earn rewards by pledging to recycle
-- **Nearby Recycling Center Locator** using Google Maps API
-- **Educational Content** on e-waste and its impact
-- **Clean UI** with animations and mobile responsiveness
+### User Dashboard
+
+- **Simple Sign Up/Login**  
+  Users can easily create an account or log in using an intuitive interface.
+
+- **E-Waste Image Upload**  
+  Users can upload images of e-waste items such as broken phones, chargers, or earphones.
+
+- **AI-Based Image Analysis**  
+  Uploaded images are analyzed using **Gemini 1.5 Flash** to detect and classify the type of e-waste. The system provides important details such as:
+  - Identification of item type  
+  - Harmful material information  
+  - Safe disposal guidelines
+
+- **Recycling Requests**  
+  Users can opt to send the item for recycling. Their details—name, contact, and item information—are securely shared with verified organizations.
+
+- **Eco-Points System**  
+  Users earn eco-points for each successful recycling action, promoting responsible behavior through gamification.
+
+- **Status Updates**  
+  Users can track the status of their submissions (pending, accepted, scheduled, recycled) on the **Recent Items** page.
+
+---
+
+### Organization Dashboard
+
+- **Organization Login Portal**  
+  Verified organizations have a dedicated login interface.
+
+- **Request Management**  
+  The dashboard lists all incoming recycling requests, including:
+  - Uploaded image  
+  - User details  
+  - Current status (e.g., pending, recycled)  
+  - Contact information
+
+- **Request Actions**  
+  Organizations can:
+  - Accept or reject submissions  
+  - Schedule pickups  
+  - Mark recycling as completed  
+  - Send status updates to users
+
+- **Real-Time Notifications**  
+  Organizations and users both receive notifications when actions are taken or statuses change.
 
 ---
 
 ## Tech Stack
 
-- **Frontend:** React.js, CSS (with animations)
-- **Backend:** Node.js, Express.js
-- **Database:** MongoDB
-- **AI Model:** TensorFlow.js / Custom ML API
-- **Authentication:** JWT
-- **Maps Integration:** Google Maps API
+- **Frontend**: React with Vite for a fast and responsive UI  
+- **Styling**: Standard CSS  
+- **Authentication**: Firebase Authentication  
+- **Database**: Firebase Firestore  
+- **Image Storage**: Cloudinary  
+- **AI Integration**: Gemini 1.5 Flash for image classification and analysis
 
 ---
 
-## Project Architecture
+## Use Cases
 
-# User -> React Frontend -> Node.js/Express Backend -> AI Service -> MongoDB
+This system is ideal for deployment in:
 
+- Schools and Colleges  
+- Residential Communities  
+- Tech Parks and Offices  
+
+It serves as a scalable solution to promote environmental responsibility and awareness of e-waste disposal.
