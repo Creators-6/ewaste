@@ -1,15 +1,15 @@
-# ♻️ E-Waste Recycling AI Platform  
+#  E-Waste Recycling AI Platform  
 An AI-powered web application to identify e-waste items, provide recycling information, and encourage responsible disposal through rewards and education.
 
 ---
 
-## 🌍 Vision  
+##  Vision  
 To create a sustainable future by promoting responsible e-waste management through technology and awareness.
 
-## 🎯 Mission  
+##  Mission  
 To empower individuals to recycle electronic waste by providing AI-driven assistance, education, and eco-rewards.
 
-## 💚 Core Values  
+##  Core Values  
 - **Sustainability** – Reducing environmental impact through recycling  
 - **Awareness** – Educating users about e-waste hazards and solutions  
 - **Innovation** – Leveraging AI to solve real-world problems  
@@ -17,7 +17,7 @@ To empower individuals to recycle electronic waste by providing AI-driven assist
 
 ---
 
-## 🚀 Features  
+##  Features  
 - **AI-based e-waste recognition** via image upload  
 - Provides:
   - E-waste description  
@@ -36,7 +36,7 @@ To empower individuals to recycle electronic waste by providing AI-driven assist
 
 ---
 
-## 🛠️ Tech Stack  
+##  Tech Stack  
 - **Frontend:** React.js, CSS (with animations)  
 - **Backend:** Node.js, Express.js  
 - **Database:** MongoDB  
@@ -46,5 +46,5 @@ To empower individuals to recycle electronic waste by providing AI-driven assist
 
 ---
 
-## 🔍 Project Architecture  
+##  Project Architecture  
 User -> React Frontend -> Node.js/Express Backend -> AI Service -> MongoDB 
