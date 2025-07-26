@@ -38,8 +38,9 @@ const buttonStyle = {
   cursor: 'pointer',
   boxShadow: '0 2px 8px #C8E6C9',
   marginBottom: 10,
-  transition: 'background 0.2s',
+  transition: 'background 0.3s ease, transform 0.2s ease', // Improved transition
 };
+
 const headingStyle = {
   fontSize: 32,
   fontWeight: 800,
