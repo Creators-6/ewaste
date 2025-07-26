@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc, increment } from 'firebase/firestore';
 import { setDoc, getDoc } from 'firebase/firestore';
+import ReactMarkdown from 'react-markdown';
 
 const PRIMARY = '#2E7D32';
 const BG_LIGHT = '#E8F5E9';
@@ -79,6 +80,8 @@ const Dashboard = () => {
   const chatEndRef = useRef(null);
   const [showUserForm, setShowUserForm] = useState(false);
   const [userForm, setUserForm] = useState({ name: '', email: '', phone: '', itemName: '', description: '', location: '' });
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -129,6 +132,37 @@ const Dashboard = () => {
     setRecentActivities(activities);
   };
 
+  useEffect(() => {
+    // Check for relevant notifications in recentActivities
+    const notifs = recentActivities.filter(a =>
+      (['pickup_scheduled', 'accepted', 'pickup_done'].includes(a.status)) && !a.notificationRead
+    ).map(a => {
+      let message = '';
+      if (a.status === 'pickup_scheduled') {
+        message = `Your request for pickup of '${a.itemName || 'an item'}' is scheduled!`;
+      } else if (a.status === 'accepted') {
+        message = `Your request for '${a.itemName || 'an item'}' has been accepted!`;
+      } else if (a.status === 'pickup_done') {
+        message = `Pickup completed for '${a.itemName || 'an item'}'. Thank you for recycling!`;
+      }
+      return { id: a.id, message };
+    });
+    setNotifications(notifs);
+  }, [recentActivities]);
+
+  // Handler to mark notification as read
+  const handleReadNotification = async (id) => {
+    // Mark as read in Firestore
+    await updateDoc(doc(db, 'uploads', id), { notificationRead: true });
+    setNotifications(notifications.filter(n => n.id !== id));
+    await fetchRecentActivities(user.uid);
+  };
+
+  // Handler to dismiss notification
+  const handleDismissNotification = (id) => {
+    setNotifications(notifications.filter(n => n.id !== id));
+  };
+
   const getDisplayName = () => {
     if (signupName) return signupName;
     if (!user) return 'User';
@@ -139,8 +173,8 @@ const Dashboard = () => {
 
   const getProfilePic = () => {
     if (user?.photoURL) return user.photoURL;
-    const name = getDisplayName();
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=2E7D32&color=fff&rounded=true&size=64`;
+    // Return a default SVG user icon as data URI
+    return "data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='32' cy='32' r='32' fill='%232E7D32'/%3E%3Ccircle cx='32' cy='26' r='12' fill='white'/%3E%3Cellipse cx='32' cy='48' rx='16' ry='10' fill='white'/%3E%3C/svg%3E";
   };
 
   const handleAiSubmit = async (e) => {
@@ -212,7 +246,7 @@ const Dashboard = () => {
   const handleRecycleChoice = async (choice) => {
     if (!user || !lastImageData) return;
     setShowRecyclePrompt(false);
-    let status = choice === 'recycle' ? 'recycled' : 'not_interested';
+    let status = choice === 'recycle' ? 'interested' : 'not_interested';
     let points = choice === 'recycle' ? 50 : 0;
     try {
       await addDoc(collection(db, 'uploads'), {
@@ -378,7 +412,51 @@ const Dashboard = () => {
                   {msg.image && (
                     <img src={msg.image} alt="Uploaded" style={{ width: 80, maxHeight: 80, objectFit: 'contain', borderRadius: 8, margin: msg.role === 'user' ? '0 0 0 8px' : '0 8px 0 0', border: '1px solid #ccc' }} />
                   )}
-                  <span style={{ background: msg.role === 'user' ? '#C8E6C9' : '#F1F8E9', padding: 10, borderRadius: 10, display: 'inline-block', maxWidth: '70%', wordBreak: 'break-word', overflowWrap: 'break-word', fontSize: 15 }}>{msg.text}</span>
+                  <div style={{ 
+                    background: msg.role === 'user' ? '#C8E6C9' : '#F1F8E9', 
+                    padding: 12, 
+                    borderRadius: 10, 
+                    display: 'inline-block', 
+                    maxWidth: '70%', 
+                    wordBreak: 'break-word', 
+                    overflowWrap: 'break-word', 
+                    fontSize: 15,
+                    lineHeight: '1.5'
+                  }}>
+                    {msg.role === 'user' ? (
+                      <span>{msg.text}</span>
+                    ) : (
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p style={{ margin: '0 0 8px 0', lineHeight: '1.5' }}>{children}</p>,
+                          h1: ({ children }) => <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 8px 0', color: PRIMARY }}>{children}</h1>,
+                          h2: ({ children }) => <h2 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 8px 0', color: PRIMARY }}>{children}</h2>,
+                          h3: ({ children }) => <h3 style={{ fontSize: '15px', fontWeight: 'bold', margin: '0 0 8px 0', color: PRIMARY }}>{children}</h3>,
+                          ul: ({ children }) => <ul style={{ margin: '0 0 8px 0', paddingLeft: '20px' }}>{children}</ul>,
+                          ol: ({ children }) => <ol style={{ margin: '0 0 8px 0', paddingLeft: '20px' }}>{children}</ol>,
+                          li: ({ children }) => <li style={{ margin: '0 0 4px 0', lineHeight: '1.4' }}>{children}</li>,
+                          strong: ({ children }) => <strong style={{ fontWeight: 'bold', color: PRIMARY }}>{children}</strong>,
+                          em: ({ children }) => <em style={{ fontStyle: 'italic' }}>{children}</em>,
+                          code: ({ children }) => <code style={{ 
+                            backgroundColor: '#f0f0f0', 
+                            padding: '2px 4px', 
+                            borderRadius: '4px', 
+                            fontSize: '14px',
+                            fontFamily: 'monospace'
+                          }}>{children}</code>,
+                          blockquote: ({ children }) => <blockquote style={{ 
+                            borderLeft: `3px solid ${PRIMARY}`, 
+                            margin: '0 0 8px 0', 
+                            paddingLeft: '12px',
+                            fontStyle: 'italic',
+                            color: '#666'
+                          }}>{children}</blockquote>
+                        }}
+                      >
+                        {msg.text}
+                      </ReactMarkdown>
+                    )}
+                  </div>
                 </div>
               ))}
               {/* Show AI info and buttons as a chat bubble if needed */}
@@ -387,7 +465,6 @@ const Dashboard = () => {
                   <img src={lastImageData.url} alt="Uploaded" style={{ width: 80, maxHeight: 80, objectFit: 'contain', borderRadius: 8, marginRight: 8, border: '1px solid #ccc' }} />
                   <div style={{ background: '#F1F8E9', padding: 12, borderRadius: 10, maxWidth: '70%', wordBreak: 'break-word', overflowWrap: 'break-word', fontSize: 15, flex: 1 }}>
                     <div style={{ fontWeight: 600, marginBottom: 8 }}>Are you interested in recycling this item?</div>
-                    <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', lineHeight: 1.6, margin: '12px 0' }}>{lastImageData.aiMsg}</div>
                     <button
                       onClick={handleShowUserForm}
                       style={{ margin: '0 8px 0 0', padding: '8px 24px', background: PRIMARY, color: '#fff', borderRadius: 6, fontWeight: 600, fontSize: 15, border: 'none' }}
@@ -586,38 +663,156 @@ const Dashboard = () => {
             🌱 {ecoPoints} Points
           </motion.div>
 
-          {/* Notification Icon */}
-          <button style={{ 
-            background: 'none', 
-            border: 'none', 
-            cursor: 'pointer',
-            fontSize: '20px',
-            color: PRIMARY,
-            padding: '8px',
-            borderRadius: '50%',
-            transition: 'background-color 0.2s'
-          }} onMouseEnter={(e) => e.target.style.backgroundColor = '#f0f0f0'} onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}>
-            <FaBell />
-          </button>
+          {/* Notification Bell and Panel */}
+          <div style={{ position: 'relative', marginRight: 16 }}>
+            <button
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 22,
+                color: PRIMARY,
+                padding: '8px',
+                borderRadius: '50%',
+                transition: 'background-color 0.2s',
+                position: 'relative',
+              }}
+              onClick={() => setShowNotifications((prev) => !prev)}
+              onMouseEnter={e => e.target.style.backgroundColor = '#f0f0f0'}
+              onMouseLeave={e => e.target.style.backgroundColor = 'transparent'}
+              aria-label="Show notifications"
+            >
+              <FaBell />
+              {notifications.length > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: 2,
+                  right: 2,
+                  background: 'red',
+                  color: '#fff',
+                  borderRadius: '50%',
+                  width: 16,
+                  height: 16,
+                  fontSize: 10,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>{notifications.length}</span>
+              )}
+            </button>
+            {showNotifications && (
+              <div style={{
+                position: 'absolute',
+                top: 40,
+                right: 0,
+                background: '#fff',
+                color: '#222',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                borderRadius: 8,
+                minWidth: 260,
+                zIndex: 100,
+                padding: 8,
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '4px 4px 8px 4px',
+                  borderBottom: '1px solid #eee',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  color: PRIMARY
+                }}>
+                  <span>Notifications</span>
+                  <button
+                    onClick={() => setShowNotifications(false)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#888',
+                      fontSize: 20,
+                      cursor: 'pointer',
+                      marginLeft: 8
+                    }}
+                    aria-label="Close notifications"
+                  >
+                    ×
+                  </button>
+                </div>
+                {notifications.length === 0 ? (
+                  <div style={{ 
+                    padding: '16px 8px', 
+                    textAlign: 'center', 
+                    color: '#888',
+                    fontSize: 14,
+                    fontStyle: 'italic'
+                  }}>
+                    No notifications to read
+                  </div>
+                ) : (
+                  notifications.map(n => (
+                    <div key={n.id} style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between', 
+                      padding: 12, 
+                      borderBottom: '1px solid #eee',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
+                    onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                    >
+                      <span style={{ flex: 1, fontSize: 13, lineHeight: 1.4 }}>{n.message}</span>
+                      <button 
+                        onClick={() => handleReadNotification(n.id)} 
+                        style={{ 
+                          marginLeft: 8, 
+                          background: PRIMARY, 
+                          color: '#fff', 
+                          border: 'none', 
+                          borderRadius: 6, 
+                          padding: '4px 12px', 
+                          cursor: 'pointer', 
+                          fontSize: 12,
+                          fontWeight: 500,
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = '#388E3C'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = PRIMARY}
+                      >
+                        Read
+                      </button>
+                      <button 
+                        onClick={() => handleDismissNotification(n.id)} 
+                        style={{ 
+                          marginLeft: 4, 
+                          background: 'transparent', 
+                          color: '#888', 
+                          border: 'none', 
+                          fontSize: 16, 
+                          cursor: 'pointer',
+                          padding: '2px',
+                          borderRadius: '50%',
+                          width: 24,
+                          height: 24,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f0f0f0'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
 
-          {/* Theme Toggle */}
-          <button 
-            onClick={toggleDarkMode} 
-            style={{ 
-              background: 'none', 
-              border: 'none', 
-              cursor: 'pointer',
-              fontSize: '20px',
-              color: PRIMARY,
-              padding: '8px',
-              borderRadius: '50%',
-              transition: 'background-color 0.2s'
-            }} 
-            onMouseEnter={(e) => e.target.style.backgroundColor = '#f0f0f0'} 
-            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-          >
-            {darkMode ? <FaSun /> : <FaMoon />}
-          </button>
+         
 
           {/* Profile */}
           <img 
@@ -639,93 +834,88 @@ const Dashboard = () => {
       </nav>
 
       <section style={{
-  position: 'relative',
-  backgroundImage: `url('https://i.pinimg.com/736x/0f/d9/ac/0fd9ac13add76e3459b2f75fd07991e5.jpg')`,
-  backgroundSize: 'cover',
-  backgroundPosition: 'center',
-  backgroundRepeat: 'no-repeat',
-  minHeight: '80vh',
-  width: '100%',
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'center',
+  backgroundColor: '#E8F5E9',
+  padding: '40px 60px',
+  minHeight: '80vh',
   fontFamily: `'Segoe UI', sans-serif`,
-  color: '#fff',
-  textAlign: 'center',
-  overflow: 'hidden'
+  overflow: 'hidden',
 }}>
-   <div style={{
-    position: 'absolute',
-    top: 0, left: 0,
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(104, 234, 128, 0.6)', // Lightens it
-    zIndex: 1,
-  }} />
-  {/* Slight dark overlay for readability */}
+  {/* Left: Image */}
   <div style={{
-    position: 'absolute',
-    top: 0, left: 0,
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)', // subtle dark overlay
-    zIndex: 1
-  }}></div>
+    flex: 1,
+    maxWidth: '500px',
+  }}>
+    <img
+      src="https://cdn.gamma.app/cztzkil3c2kchn1/edited-images/D31Wa16u_2EqGswcId6kx.png"
+      alt="E-Waste Recycling"
+      style={{
+        width: '100%',
+        height: 'auto',
+        display: 'block',
+      }}
+    />
+  </div>
 
-  {/* Content */}
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 1 }}
-    style={{
-      zIndex: 2, // ensure it's above overlay
-      maxWidth: '800px',
-      padding: '40px'
-    }}
-  >
+  {/* Right: Text */}
+  <div style={{
+    flex: 1,
+    paddingLeft: '40px',
+    color: '#2E7D32',
+  }}>
+   
+
     <h1 style={{
-      fontSize: '48px',
-      fontWeight: '800',
-      marginBottom: '20px',
-      lineHeight: '1.2'
+      fontSize: '38px',
+      fontWeight: 800,
+      marginBottom: '16px',
+      lineHeight: 1.2,
+      color: '#2E7D32'
     }}>
-      Hello, {getDisplayName()} 👋
+      Transform Your E-Waste Into Hope
     </h1>
+
     <h3 style={{
-      fontSize: '24px',
-      fontWeight: '600',
-      marginBottom: '20px'
+      fontSize: '20px',
+      fontWeight: 600,
+      marginBottom: '16px',
+      color: '#1B5E20'
     }}>
-      Help us create a sustainable future. Start with your unused devices!
+      Your recycling journey starts here – every device matters!
     </h3>
+
     <p style={{
-      fontSize: '18px',
-      lineHeight: '1.6',
-      marginBottom: '30px'
+      fontSize: '16px',
+      lineHeight: 1.6,
+      marginBottom: '24px',
+      color: '#388E3C'
     }}>
-      Identify and upload your e-waste items using our AI assistant. Learn about their impact,
-      recycle safely, and earn eco points for every responsible action you take.
+      Join the revolution of responsible recycling. Your old electronics can become someone's new opportunity. 
+      Let's create a circular economy where nothing goes to waste!
     </p>
+
     <button
       onClick={() => document.getElementById('ask-ai-section')?.scrollIntoView({ behavior: 'smooth' })}
       style={{
-        padding: '14px 28px',
+        padding: '12px 24px',
         fontSize: '16px',
         backgroundColor: '#43a047',
         color: '#fff',
         border: 'none',
-        borderRadius: '10px',
+        borderRadius: '8px',
         cursor: 'pointer',
-        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
         transition: 'background-color 0.3s ease'
       }}
-      onMouseOver={(e) => e.target.style.backgroundColor = '#2e7d32'}
+      onMouseOver={(e) => e.target.style.backgroundColor = '#2E7D32'}
       onMouseOut={(e) => e.target.style.backgroundColor = '#43a047'}
     >
       🤖 Ask AI
     </button>
-  </motion.div>
+  </div>
 </section>
+
 
      {/* AI Section */}
 <section
@@ -736,7 +926,7 @@ const Dashboard = () => {
 </section>
 
 
-      {}
+      {/* Recent Activities Section */}
       <section style={{ 
         maxWidth: 1200, 
         margin: '0 auto', 
@@ -807,14 +997,14 @@ const Dashboard = () => {
                       ? 'Accepted'
                       : item.status?.toLowerCase() === 'recycled'
                       ? 'Interested'
-                      : 'Not Interested'}
+                      : 'Pickup Done '}
                   </div>
                   <div style={{ 
                     fontSize: 14, 
                     color: item.status === 'accepted' ? '#2196F3' : item.status === 'recycled' ? '#4CAF50' : '#888',
                     marginBottom: 8
                   }}>
-                    {item.aiMsg && item.aiMsg.slice(0, 60)}{item.aiMsg && item.aiMsg.length > 60 ? '...' : ''}
+                    {item.aiMsg && item.aiMsg.slice(0, 0)}{item.aiMsg && item.aiMsg.length > 60 ? ' ' : ''}
                   </div>
                   <div style={{ 
                     fontSize: 12, 
