@@ -1,51 +1,73 @@
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
+import { getDoc, doc } from 'firebase/firestore';
 
 const cardStyle = {
-  background: 'rgba(255,255,255,0.95)',
-  borderRadius: 20,
-  boxShadow: '0 8px 32px rgba(60,72,88,0.15)',
-  padding: '48px 36px',
-  maxWidth: 380,
+  background: 'rgba(255,255,255,0.98)',
+  borderRadius: 24,
+  boxShadow: '0 12px 40px rgba(60,72,88,0.2)',
+  padding: '40px 32px',
+  maxWidth: 420,
   width: '100%',
   textAlign: 'center',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
+  backdropFilter: 'blur(10px)',
+  border: '1px solid rgba(255,255,255,0.2)',
 };
+
 const inputStyle = {
   width: '100%',
-  padding: 12,
+  padding: 14,
   marginTop: 8,
-  borderRadius: 8,
-  border: '1.5px solid #C8E6C9',
-  fontSize: 17,
+  borderRadius: 12,
+  border: '2px solid #e0e0e0',
+  fontSize: 16,
   outline: 'none',
-  background: '#F8FAF9',
-  marginBottom: 18,
-  transition: 'border 0.2s',
+  background: '#fafafa',
+  marginBottom: 16,
+  transition: 'all 0.3s ease',
+  boxSizing: 'border-box',
 };
+
+const inputFocusStyle = {
+  border: '2px solid #2E7D32',
+  background: '#fff',
+  boxShadow: '0 0 0 3px rgba(46,125,50,0.1)',
+};
+
 const buttonStyle = {
   width: '100%',
-  padding: 14,
-  background: '#2E7D32',
+  padding: 16,
+  background: 'linear-gradient(135deg, #2E7D32 0%, #388E3C 100%)',
   color: '#fff',
   border: 'none',
-  borderRadius: 10,
+  borderRadius: 12,
   fontWeight: 700,
-  fontSize: 18,
+  fontSize: 16,
   cursor: 'pointer',
-  boxShadow: '0 2px 8px #C8E6C9',
-  marginBottom: 10,
-  transition: 'background 0.2s',
+  boxShadow: '0 4px 16px rgba(46,125,50,0.3)',
+  marginBottom: 16,
+  transition: 'all 0.3s ease',
+  position: 'relative',
+  overflow: 'hidden',
 };
+
 const headingStyle = {
-  fontSize: 32,
+  fontSize: 28,
   fontWeight: 800,
   color: '#2E7D32',
-  marginBottom: 30,
-  letterSpacing: '-1px',
+  marginBottom: 8,
+  letterSpacing: '-0.5px',
+};
+
+const subtitleStyle = {
+  fontSize: 14,
+  color: '#666',
+  marginBottom: 24,
+  fontWeight: 400,
 };
 
 const Login = () => {
@@ -59,8 +81,19 @@ const Login = () => {
     setLoading(true);
     setError('');
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      window.location.href = '/dashboard'; // Redirect to dashboard after login
+      const userCred = await signInWithEmailAndPassword(auth, email, password);
+      // Fetch user role from Firestore
+      const userDoc = await getDoc(doc(db, 'users', userCred.user.uid));
+      let redirectUrl = '/dashboard';
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.role === 'organization') {
+          redirectUrl = '/org-dashboard';
+        } else {
+          redirectUrl = '/dashboard';
+        }
+      }
+      window.location.href = redirectUrl;
     } catch (err) {
       setError(err.message);
     } finally {
@@ -76,20 +109,52 @@ const Login = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%)',
+        background: 'linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 50%, #A5D6A7 100%)',
         fontFamily: 'Segoe UI, Arial, sans-serif',
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
-      <div style={cardStyle}>
-        <h2 style={headingStyle}>Login</h2>
+      {/* Background decoration */}
+      <div style={{
+        position: 'absolute',
+        top: -50,
+        right: -50,
+        width: 200,
+        height: 200,
+        background: 'rgba(46,125,50,0.1)',
+        borderRadius: '50%',
+        zIndex: 0,
+      }} />
+      <div style={{
+        position: 'absolute',
+        bottom: -80,
+        left: -80,
+        width: 300,
+        height: 300,
+        background: 'rgba(76,175,80,0.08)',
+        borderRadius: '50%',
+        zIndex: 0,
+      }} />
+      
+      <div style={{ ...cardStyle, position: 'relative', zIndex: 1 }}>
+        <h2 style={headingStyle}>Welcome Back</h2>
+        <p style={subtitleStyle}>Sign in to continue your recycling journey</p>
+        
         <form onSubmit={handleLogin} style={{ width: '100%' }}>
           <input
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
-            placeholder="Email"
+            placeholder="Email Address"
             style={inputStyle}
+            onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
+            onBlur={(e) => {
+              e.target.style.border = '2px solid #e0e0e0';
+              e.target.style.background = '#fafafa';
+              e.target.style.boxShadow = 'none';
+            }}
           />
           <input
             type="password"
@@ -98,22 +163,73 @@ const Login = () => {
             required
             placeholder="Password"
             style={inputStyle}
+            onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
+            onBlur={(e) => {
+              e.target.style.border = '2px solid #e0e0e0';
+              e.target.style.background = '#fafafa';
+              e.target.style.boxShadow = 'none';
+            }}
           />
-          {error && <div style={{ color: '#e57373', marginBottom: 14 }}>{error}</div>}
+          
+          {error && (
+            <div style={{ 
+              color: '#d32f2f', 
+              marginBottom: 16, 
+              padding: '12px',
+              background: '#ffebee',
+              borderRadius: 8,
+              fontSize: 14,
+              border: '1px solid #ffcdd2'
+            }}>
+              {error}
+            </div>
+          )}
+          
           <button
             type="submit"
             disabled={loading}
-            style={buttonStyle}
-            onMouseOver={e => (e.currentTarget.style.background = '#66BB6A')}
-            onMouseOut={e => (e.currentTarget.style.background = '#2E7D32')}
+            style={{
+              ...buttonStyle,
+              opacity: loading ? 0.7 : 1,
+              cursor: loading ? 'not-allowed' : 'pointer',
+            }}
+            onMouseOver={e => {
+              if (!loading) {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(46,125,50,0.4)';
+              }
+            }}
+            onMouseOut={e => {
+              if (!loading) {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 16px rgba(46,125,50,0.3)';
+              }
+            }}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
-        <div style={{ marginTop: 18, color: '#555', fontSize: 15 }}>
+        
+        <div style={{ 
+          marginTop: 24, 
+          color: '#666', 
+          fontSize: 14,
+          fontWeight: 400
+        }}>
           Don't have an account?{' '}
-          <a href="/signup" style={{ color: '#2E7D32', textDecoration: 'underline', fontWeight: 500 }}>
-            Sign up
+          <a 
+            href="/signup" 
+            style={{ 
+              color: '#2E7D32', 
+              textDecoration: 'none', 
+              fontWeight: 600,
+              borderBottom: '1px solid transparent',
+              transition: 'border-color 0.3s ease',
+            }}
+            onMouseOver={(e) => e.target.style.borderBottomColor = '#2E7D32'}
+            onMouseOut={(e) => e.target.style.borderBottomColor = 'transparent'}
+          >
+            Create Account
           </a>
         </div>
       </div>
