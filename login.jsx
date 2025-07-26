@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
+import { getDoc, doc } from 'firebase/firestore';
 
 const cardStyle = {
   background: 'rgba(255,255,255,0.95)',
@@ -28,18 +29,36 @@ const inputStyle = {
 };
 const buttonStyle = {
   width: '100%',
-  padding: 14,
+  padding: '14px',
   background: '#2E7D32',
   color: '#fff',
   border: 'none',
-  borderRadius: 10,
+  borderRadius: '10px',
   fontWeight: 700,
-  fontSize: 18,
+  fontSize: '18px',
   cursor: 'pointer',
-  boxShadow: '0 2px 8px #C8E6C9',
-  marginBottom: 10,
-  transition: 'background 0.2s',
+  boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)',
+  marginBottom: '10px',
+  transition: 'all 0.3s ease',
+  outline: 'none',
 };
+
+const buttonHoverStyle = {
+  background: '#388E3C',
+  transform: 'translateY(-2px)',
+  boxShadow: '0 6px 16px rgba(56, 142, 60, 0.3)',
+};
+
+const buttonActiveStyle = {
+  transform: 'scale(0.98)',
+  boxShadow: '0 2px 8px rgba(46, 125, 50, 0.2)',
+};
+
+const buttonFocusStyle = {
+  outline: '2px solid #A5D6A7',
+  outlineOffset: '2px',
+};
+
 const headingStyle = {
   fontSize: 32,
   fontWeight: 800,
@@ -59,8 +78,19 @@ const Login = () => {
     setLoading(true);
     setError('');
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      window.location.href = '/dashboard'; // Redirect to dashboard after login
+      const userCred = await signInWithEmailAndPassword(auth, email, password);
+      // Fetch user role from Firestore
+      const userDoc = await getDoc(doc(db, 'users', userCred.user.uid));
+      let redirectUrl = '/dashboard';
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.role === 'organization') {
+          redirectUrl = '/orgdashboard';
+        } else {
+          redirectUrl = '/dashboard';
+        }
+      }
+      window.location.href = redirectUrl;
     } catch (err) {
       setError(err.message);
     } finally {
