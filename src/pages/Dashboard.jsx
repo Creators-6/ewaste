@@ -391,7 +391,7 @@ const Dashboard = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center' }}>
           <div>
             <button onClick={() => setSelectedTab('ai')} style={{ background: selectedTab === 'ai' ? PRIMARY : '#eee', color: selectedTab === 'ai' ? '#fff' : TEXT_LIGHT, padding: 10, borderRadius: 8 }}>Ask AI</button>
-            <button onClick={() => navigate('/nearby-centers')} style={{ background: '#eee', color: TEXT_LIGHT, padding: 10, borderRadius: 8, marginLeft: 8 }}>Recycle Centres</button>
+
           </div>
           <button
             onClick={() => setFullscreen(f => !f)}
