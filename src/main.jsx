@@ -8,6 +8,8 @@ import Dashboard from './pages/Dashboard'
 import UploadImage from './pages/UploadImage'
 import ProfilePage from './pages/ProfilePage'
 import RecyclingCenters from './pages/RecyclingCenters'
+import OrgDashboard from './pages/OrgDashboard';
+import OrgProfile from './pages/OrgProfile';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -20,6 +22,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/upload" element={<UploadImage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/nearby-centers" element={<RecyclingCenters />} />
+        <Route path="/org-dashboard" element={<OrgDashboard />} />
+        <Route path="/org-profile" element={<OrgProfile />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>,
