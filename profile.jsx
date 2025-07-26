@@ -78,7 +78,7 @@ const ProfilePage = () => {
 
   const getProfilePic = () => {
     if (user?.photoURL) return user.photoURL;
-    const name = user?.displayName || user?.email?.split("@")[0] || "User";
+    const name = user?.displayName || user?.email?.split("@")?.[0] || "User";
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=2E7D32&color=fff&rounded=true&size=128`;
   };
 
@@ -104,9 +104,8 @@ const ProfilePage = () => {
         }}
       >
         <div style={{ fontWeight: "bold", fontSize: "20px", color: PRIMARY }}>
-          ♻️ E-Waste Recycle
+          ♻ E-Waste Recycle
         </div>
-
         <div
           style={{
             display: "flex",
@@ -149,7 +148,6 @@ const ProfilePage = () => {
           </span>
         </div>
       </nav>
-
       <main
         style={{
           maxWidth: "1000px",
@@ -161,7 +159,6 @@ const ProfilePage = () => {
         <p style={{ marginBottom: "20px", color: "#555" }}>
           Manage your account and track your eco-friendly journey
         </p>
-
         <div
           style={{
             display: "flex",
@@ -193,16 +190,13 @@ const ProfilePage = () => {
                   borderRadius: "50%",
                 }}
               />
-
-<p>
-  <strong>Name:</strong>{" "}
-  {user?.displayName && user.displayName.trim() !== ""
-    ? user.displayName
-    : user?.email?.split("@")[0] || "User"}
-</p>
-
+              <p>
+                <strong>Name:</strong>{" "}
+                {user?.displayName && user.displayName.trim() !== ""
+                  ? user.displayName
+                  : user?.email?.split("@")?.[0] || "User"}
+              </p>
               <p><strong>Email:</strong> {user?.email}</p>
-
               <div style={{ marginTop: "10px" }}>
                 <p><strong>Phone:</strong> {editMode ? (
                   <input
@@ -219,7 +213,6 @@ const ProfilePage = () => {
                 ) : (
                   <span style={{ marginLeft: "10px" }}>{phone || "Not set"}</span>
                 )}</p>
-
                 <p><strong>Location:</strong> {editMode ? (
                   <input
                     type="text"
@@ -235,7 +228,6 @@ const ProfilePage = () => {
                 ) : (
                   <span style={{ marginLeft: "10px" }}>{location || "Not set"}</span>
                 )}</p>
-
                 {editMode ? (
                   <button
                     onClick={handleSaveProfile}
@@ -272,7 +264,6 @@ const ProfilePage = () => {
               </div>
             </div>
           </div>
-
           {/* Your Impact */}
           <div
             style={{
@@ -287,16 +278,14 @@ const ProfilePage = () => {
             <h3 style={{ textAlign: "center", marginBottom: "20px" }}>
               🌟 Your Impact
             </h3>
-
             <div
-  style={{
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "20px",
-    justifyContent: "space-between",
-  }}
->
-
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "20px",
+                justifyContent: "space-between",
+              }}
+            >
               <div style={impactBox}>
                 <div style={{ fontSize: "22px", fontWeight: "bold" }}>{ecoPoints}</div>
                 <div>EcoPoints</div>
@@ -306,77 +295,77 @@ const ProfilePage = () => {
                 <div>Total Items</div>
               </div>
               <div style={impactBox}>
-                <div style={{ fontSize: "22px", fontWeight: "bold" }}>{uploads.filter(u => u.status === "RECYCLED").length}</div>
+                <div style={{ fontSize: "22px", fontWeight: "bold" }}>{uploads.filter(u => u.status === "recycled").length}</div>
                 <div>Items Recycled</div>
               </div>
               <div style={impactBox}>
-                <div style={{ fontSize: "22px", fontWeight: "bold" }}>{uploads.filter(u => u.status === "ANALYZED").length}</div>
-                <div>Items Analyzed</div>
+                <div style={{ fontSize: "22px", fontWeight: "bold" }}>{uploads.filter(u => u.status === "not_interested").length}</div>
+                <div>Items Not Interested</div>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Upload History */}
+        {/* Upload History (Recent Activities) */}
         <section>
-          <h3>📦 Upload History</h3>
+          <h3>📦 Recent Activities</h3>
           <div>
-            {uploads.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  background: "#fff",
-                  padding: "10px",
-                  border: "1px solid #ddd",
-                  borderRadius: "5px",
-                  marginBottom: "10px",
-                }}
-              >
-                {item.url && (
-                  <img
-                    src={item.url}
-                    alt={item.name}
-                    style={{
-                      width: 60,
-                      height: 60,
-                      marginRight: 10,
-                      objectFit: "cover",
-                      borderRadius: "4px",
-                    }}
-                  />
-                )}
-                <div>
-                  <p>{item.name}</p>
-                  <p>
-                    {new Date(item.uploadedAt?.seconds * 1000).toLocaleDateString()}
-                  </p>
-                  <span
-                    style={{
-                      fontSize: 12,
-                      padding: "2px 6px",
-                      borderRadius: 3,
-                      backgroundColor:
-                        item.status === "RECYCLED" ? "#d4f5d4" : "#e0f0ff",
-                      color: item.status === "RECYCLED" ? "#339933" : "#0066cc",
-                    }}
-                  >
-                    {item.status}
-                  </span>
-                </div>
+            {uploads.length === 0 ? (
+              <div style={{ color: '#888', textAlign: 'center' }}>No recent activities yet.</div>
+            ) : (
+              uploads.map((item) => (
                 <div
+                  key={item.id}
                   style={{
-                    marginLeft: "auto",
-                    marginRight: 20,
-                    fontWeight: "bold",
-                    color: "green",
+                    display: "flex",
+                    alignItems: "center",
+                    background: "#fff",
+                    padding: "10px",
+                    border: "1px solid #ddd",
+                    borderRadius: "5px",
+                    marginBottom: "10px",
                   }}
                 >
-                  +{item.points}
+                  {item.url && (
+                    <img
+                      src={item.url}
+                      alt="Activity"
+                      style={{
+                        width: 60,
+                        height: 60,
+                        marginRight: 10,
+                        objectFit: "cover",
+                        borderRadius: "4px",
+                      }}
+                    />
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 2 }}>
+                      {item.status === 'pickup_scheduled'
+                        ? `Pickup Scheduled${item.pickupDateTime ? ': ' + (item.pickupDateTime.toDate ? item.pickupDateTime.toDate().toLocaleString() : new Date(item.pickupDateTime.seconds * 1000).toLocaleString()) : ''}${item.pickupLocation ? ' | Location: ' + item.pickupLocation : ''}`
+                        : item.status === 'accepted'
+                        ? 'Accepted'
+                        : item.status === 'recycled'
+                        ? 'Recycled'
+                        : 'Not Interested'}
+                    </div>
+                    <div style={{ fontSize: 13, color: '#555', marginBottom: 4, whiteSpace: 'pre-wrap' }}>
+                      {item.aiMsg && item.aiMsg.slice(0, 80)}{item.aiMsg && item.aiMsg.length > 80 ? '...' : ''}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#888' }}>{item.uploadedAt?.seconds ? new Date(item.uploadedAt.seconds * 1000).toLocaleString() : ''}</div>
+                  </div>
+                  <div
+                    style={{
+                      marginLeft: "auto",
+                      marginRight: 20,
+                      fontWeight: "bold",
+                      color: item.status === 'accepted' ? 'blue' : item.status === 'recycled' ? 'green' : '#888',
+                    }}
+                  >
+                    {item.status === 'accepted' ? `+${item.points || 0}` : item.status === 'recycled' ? `+${item.points || 0}` : ''}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </section>
       </main>
@@ -393,6 +382,5 @@ const impactBox = {
   width: "48%", // Ensure two per row with space between
   boxSizing: "border-box",
 };
-
 
 export default ProfilePage;
