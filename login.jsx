@@ -30,10 +30,10 @@ const inputStyle = {
 const buttonStyle = {
   width: '100%',
   padding: '14px',
-  background: '#2E7D32',
+  background: 'linear-gradient(90deg, #2E7D32, #388E3C)',
   color: '#fff',
   border: 'none',
-  borderRadius: '10px',
+  borderRadius: '12px', // slightly more rounded
   fontWeight: 700,
   fontSize: '18px',
   cursor: 'pointer',
