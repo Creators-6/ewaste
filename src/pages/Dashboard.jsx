@@ -135,14 +135,14 @@ const Dashboard = () => {
   useEffect(() => {
     // Check for relevant notifications in recentActivities
     const notifs = recentActivities.filter(a =>
-      (['pickup_scheduled', 'accepted', 'pickup_done'].includes(a.status)) && !a.notificationRead
+              (['pickup_scheduled', 'accepted', 'done'].includes(a.status)) && !a.notificationRead
     ).map(a => {
       let message = '';
       if (a.status === 'pickup_scheduled') {
         message = `Your request for pickup of '${a.itemName || 'an item'}' is scheduled!`;
       } else if (a.status === 'accepted') {
         message = `Your request for '${a.itemName || 'an item'}' has been accepted!`;
-      } else if (a.status === 'pickup_done') {
+              } else if (a.status === 'done') {
         message = `Pickup completed for '${a.itemName || 'an item'}'. Thank you for recycling!`;
       }
       return { id: a.id, message };
@@ -305,7 +305,7 @@ const Dashboard = () => {
         userId: user.uid,
         url: lastImageData.url,
         aiMsg: lastImageData.aiMsg,
-        status: 'recycled',
+        status: 'interested',
         points: 50,
         uploadedAt: serverTimestamp(),
         userName: userForm.name,
@@ -995,13 +995,13 @@ const Dashboard = () => {
                       ? 'Pickup Scheduled'
                       : item.status?.toLowerCase() === 'accepted'
                       ? 'Accepted'
-                      : item.status?.toLowerCase() === 'recycled'
+                      : item.status?.toLowerCase() === 'interested'
                       ? 'Interested'
                       : 'Pickup Done '}
                   </div>
                   <div style={{ 
                     fontSize: 14, 
-                    color: item.status === 'accepted' ? '#2196F3' : item.status === 'recycled' ? '#4CAF50' : '#888',
+                    color: item.status === 'accepted' ? '#2196F3' : item.status === 'interested' ? '#4CAF50' : '#888',
                     marginBottom: 8
                   }}>
                     {item.aiMsg && item.aiMsg.slice(0, 0)}{item.aiMsg && item.aiMsg.length > 60 ? ' ' : ''}
