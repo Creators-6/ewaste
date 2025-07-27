@@ -5,7 +5,7 @@
 This project is an AI-powered e-waste awareness and recycling platform developed by **Team Creators**. The platform bridges the gap between individuals looking to dispose of e-waste responsibly and organizations committed to collecting and recycling it. It features a dual interface—one for users and another for organizations—facilitating seamless communication and sustainable action.
 
 This is our Youtube video Demo link : 
----
+https://youtu.be/09IBYvcPZxQ?si=P4y-0wHx8J1jUgyY
 
 ## Features
 
