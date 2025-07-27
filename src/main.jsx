@@ -5,7 +5,7 @@ import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Dashboard from './pages/Dashboard'
-import UploadImage from './pages/UploadImage'
+
 import ProfilePage from './pages/ProfilePage'
 import RecyclingCenters from './pages/RecyclingCenters'
 import OrgDashboard from './pages/OrgDashboard';
@@ -19,7 +19,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/upload" element={<UploadImage />} />
+
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/nearby-centers" element={<RecyclingCenters />} />
         <Route path="/org-dashboard" element={<OrgDashboard />} />
