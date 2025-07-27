@@ -1,0 +1,35 @@
+.status-badge {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 4px;
+  min-width: 80px;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+.status-pending {
+  background: #ffe066;
+  color: #7a5d00;
+  border: 1px solid #ffe066;
+}
+
+.status-interested {
+  background: #43a047;
+  color: #fff;
+  border: 1px solid #388e3c;
+}
+
+.status-rejected {
+  background: #e53935;
+  color: #fff;
+  border: 1px solid #b71c1c;
+}
+
+.status-done {
+  background: #2196F3;
+  color: #fff;
+  border: 1px solid #1976D2;
+} 
