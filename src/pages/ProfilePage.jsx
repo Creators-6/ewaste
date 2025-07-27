@@ -304,7 +304,7 @@ const ProfilePage = () => {
                 <div>Total Items</div>
               </div>
               <div style={impactBox}>
-                <div style={{ fontSize: "22px", fontWeight: "bold" }}>{uploads.filter(u => u.status === "interested").length}</div>
+                <div style={{ fontSize: "22px", fontWeight: "bold" }}>{uploads.filter(u => u.status === "done").length}</div>
                 <div>Items Picked Up</div>
               </div>
               <div style={impactBox}>
@@ -355,7 +355,7 @@ const ProfilePage = () => {
                         ? `Pickup Scheduled${item.pickupDateTime ? ': ' + (item.pickupDateTime.toDate ? item.pickupDateTime.toDate().toLocaleString() : new Date(item.pickupDateTime.seconds * 1000).toLocaleString()) : ''}${item.pickupLocation ? ' | Location: ' + item.pickupLocation : ''}`
                         : item.status === 'accepted'
                         ? 'Accepted'
-                        : item.status === 'recycled'
+                        : item.status === 'interested'
                         ? 'Interested'
                         : item.status === 'Pickup Done'
                         ? 'Pickup Done'
@@ -371,10 +371,10 @@ const ProfilePage = () => {
                       marginLeft: "auto",
                       marginRight: 20,
                       fontWeight: "bold",
-                      color: item.status === 'accepted' ? 'blue' : item.status === 'recycled' ? 'green' : '#888',
+                      color: item.status === 'accepted' ? 'blue' : item.status === 'interested' ? 'green' : '#888',
                     }}
                   >
-                    {item.status === 'accepted' ? `+${item.points || 0}` : item.status === 'recycled' ? `+${item.points || 0}` : ''}
+                    {item.status === 'accepted' ? `+${item.points || 0}` : item.status === 'interested' ? `+${item.points || 0}` : ''}
                   </div>
                 </div>
               ))
