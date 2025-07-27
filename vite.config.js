@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     rollupOptions: {
-      external: ['@react-google-maps/api']
+      external: ['@react-google-maps/api', 'react-markdown']
     }
   }
 });
